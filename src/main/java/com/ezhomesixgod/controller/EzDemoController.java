@@ -3,6 +3,7 @@ package com.ezhomesixgod.controller;
 import com.ezhomesixgod.EzInterface.EzAutoWired;
 import com.ezhomesixgod.EzInterface.EzController;
 import com.ezhomesixgod.EzInterface.EzRequestMapping;
+import com.ezhomesixgod.EzInterface.EzResponseBody;
 import com.ezhomesixgod.service.EzDemoService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +21,7 @@ import java.util.List;
  */
 
 @EzController
-@EzRequestMapping(value = "EzDemoController")
+@EzRequestMapping(value = "ezDemoController")
 public class EzDemoController {
 
     private static final Logger logger =LoggerFactory.getLogger(EzDemoController.class);
@@ -29,10 +30,11 @@ public class EzDemoController {
     private EzDemoService demoService;
 
     @EzRequestMapping("findList")
-    public void findList(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    @EzResponseBody
+    public Object findList(HttpServletRequest request, HttpServletResponse response) throws IOException {
         logger.info("EzDemoController findList>>>>");
        Object object =  demoService.findList();
         List<Object> list =(List<Object>)object;
-        response.getWriter().write(list.toString());
+       return list;
     }
 }

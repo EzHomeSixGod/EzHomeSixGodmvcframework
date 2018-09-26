@@ -1,10 +1,9 @@
 package com.ezhomesixgod.servlet;
 
-import com.ezhomesixgod.EzInterface.EzAutoWired;
-import com.ezhomesixgod.EzInterface.EzController;
-import com.ezhomesixgod.EzInterface.EzRequestMapping;
-import com.ezhomesixgod.EzInterface.EzService;
-import com.sun.scenario.effect.impl.sw.sse.SSEBlend_SRC_OUTPeer;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.ezhomesixgod.EzInterface.*;
+import com.ezhomesixgod.entity.EzWrapperResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +32,8 @@ public class EzDispacherServlet extends HttpServlet {
     private static final Long serialVersionUID=1l;
 
     private static final String contextConfigLocation="contextConfigLocation";
+
+    private static final String prefix ="/WEB-INF";
 
     private List<String> classNames= new ArrayList<>();
 
@@ -64,13 +65,11 @@ public class EzDispacherServlet extends HttpServlet {
         //构造HandlerMapping
         initHandlerMapping();
         //等待请求，匹配url，定位方法，反射调用执行
-        super.init(config);
     }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
        doPost(req,resp);
-
     }
 
 
@@ -88,31 +87,48 @@ public class EzDispacherServlet extends HttpServlet {
     }
 
 
-    protected void doDispacher(HttpServletRequest req, HttpServletResponse resp) throws IOException, InvocationTargetException, IllegalAccessException {
-            if(this.handlerMappingMap.isEmpty()){return;}
+    protected Object doDispacher(HttpServletRequest req, HttpServletResponse resp) throws IOException, InvocationTargetException, IllegalAccessException, ServletException {
+            if(this.handlerMappingMap.isEmpty()){return null;}
+
 
             String requestUrl = req.getRequestURI();
-            if(requestUrl.contains("/favicon.ico")){
-                return;
-            }
-            logger.info("requestUrl:" +requestUrl);
+            logger.info("requestUrl:"+requestUrl);
             if(!handlerMappingMap.containsKey(requestUrl)){
-                resp.getWriter().write("404 NOT FOUND！");
-                return;
+                return null;
             }
 
-            Map<String,String[]> params =req.getParameterMap();
+            if(handlerMappingMap.containsKey(requestUrl)){
+                Map<String,String[]> params =req.getParameterMap();
 
-            String[] param = requestUrl.split("/");
-            String controllerName = param[1];
-            String methodname = param[2];
+                String[] param = requestUrl.split("/");
+                String controllerName = param[1];
+                String methodname = param[2];
+                Method method =this.handlerMappingMap.get(requestUrl);
+                String beanName = lowerFirstCase(controllerName);
+                Object o = iocMap.get(beanName);
+                method.setAccessible(true);
+                Object object = method.invoke(o,req,resp);
 
+                logger.info("return data:"+object);
+                if(method.isAnnotationPresent(EzResponseBody.class)){
+                    logger.info("json:["+object+"]");
+                    resp.getWriter().write(JSON.toJSONString(object));
+                }
 
-            Method method =this.handlerMappingMap.get(requestUrl);
-            String beanName = lowerFirstCase(controllerName);
-            Object o = iocMap.get(beanName);
-            method.setAccessible(true);
-            method.invoke(o,req,resp);
+            }else{
+
+//                String path = requestUrl+"/WEB-INF/success.jsp";
+//                req.getRequestDispatcher(path).forward(req,resp);
+
+//                logger.info("跳转到jsp:"+req.getContextPath()+"/index.jsp" );
+//                if("".equals(requestUrl) || "/ezhomesixgodmvcframework/".equals(requestUrl)){
+//                    logger.info("跳转到jsp:"+req.getContextPath()+"/index.jsp" );
+//                    req.getRequestDispatcher(req.getContextPath()+"/index.jsp").forward(req,resp);
+//                }
+//                req.getRequestDispatcher(req.getContextPath()+requestUrl+".jsp").forward(req,resp);
+            }
+            return null;
+
     }
 
     protected void doConfigLocationContext(String contextConfigLocation){
@@ -170,7 +186,7 @@ public class EzDispacherServlet extends HttpServlet {
         if(classNames.size()==0){return;}
 
         for(String className : classNames){
-            logger.info("------class name:"+className);
+            logger.info("[Path:"+className+"]");
             try {
                 Class<?> clazz = Class.forName(className);
 
@@ -252,7 +268,6 @@ public class EzDispacherServlet extends HttpServlet {
             String baseUrl ="/";
             EzRequestMapping requestMapping =clazz.getAnnotation(EzRequestMapping.class);
             String mapping = requestMapping.value();
-            logger.info("----EzRequestMapping---:"+mapping);
             baseUrl +=mapping;
             Method[] methods =clazz.getMethods();
             for(Method m : methods){
@@ -261,10 +276,18 @@ public class EzDispacherServlet extends HttpServlet {
                 baseUrl +="/"+ ezRequestMapping.value();
                 handlerMappingMap.put(baseUrl,m);
                 logger.info("Mapped Mapping :"+baseUrl);
+                if(m.isAnnotationPresent(EzResponseBody.class)){
+                    logger.info("Return Type:EzResponseBody");
+                }else{
+                    logger.info("Return Type:View");
+                }
+
             }
 
 
         }
 
     }
+
+
 }
